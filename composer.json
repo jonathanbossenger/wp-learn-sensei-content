@@ -1,0 +1,15 @@
+{
+    "name": "wp-learn/sensei-content",
+    "description": "A custom Sensei extension plugin for WP Learn",
+    "type": "wordpress-plugin",
+    "require": {
+        "automattic/wp-feature-api": "^0.1.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "WP_Learn\\Sensei_Content\\": "includes/"
+        }
+    },
+    "license": "GPL-2.0-or-later",
+    "minimum-stability": "stable"
+}
