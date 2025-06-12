@@ -11,40 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Setup Server
       run: |
         sudo apt update
         sudo apt upgrade -y
 
-    - name: Setup Apache
+    - name: Setup PHP with SQLite
       run: |
-        sudo apt-get update
-        sudo apt-get install -y apache2
-        sudo a2enmod rewrite
-        sudo service apache2 start
-
-    - name: Install MySQL
-      run: |
-        sudo apt-get update
-        sudo DEBIAN_FRONTEND=noninteractive apt-get install -y mysql-server
-      
-    - name: Configure MySQL
-      run: |
-        sudo systemctl start mysql
-        sudo mysql -u root <<EOF
-          ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY 'password';
-          FLUSH PRIVILEGES;
-          CREATE DATABASE wordpress;
-          CREATE USER 'wordpress'@'localhost' IDENTIFIED BY 'wordpress';
-          GRANT ALL PRIVILEGES ON wordpress.* TO 'wordpress'@'localhost';
-          FLUSH PRIVILEGES;
-        EOF
-
-    - name: Setup PHP
-      run: |
-        sudo apt-get install -y php php-mysql php-curl php-gd php-mbstring php-xml php-xmlrpc php-soap php-intl php-zip
+        sudo apt-get install -y php php-sqlite3 php-curl php-gd php-mbstring php-xml php-xmlrpc php-soap php-intl php-zip
 
     - name: Setup WP-CLI
       run: |
@@ -52,35 +28,21 @@ jobs:
         chmod +x wp-cli.phar
         sudo mv wp-cli.phar /usr/local/bin/wp
 
-    - name: Configure Apache Virtual Host
-      run: |
-        sudo tee /etc/apache2/sites-available/wordpress.conf << EOF
-        <VirtualHost *:80>
-            ServerAdmin webmaster@localhost
-            DocumentRoot /var/www/wordpress
-            <Directory /var/www/wordpress>
-                Options Indexes FollowSymLinks
-                AllowOverride All
-                Require all granted
-            </Directory>
-            ErrorLog \${APACHE_LOG_DIR}/error.log
-            CustomLog \${APACHE_LOG_DIR}/access.log combined
-        </VirtualHost>
-        EOF
-        sudo a2ensite wordpress.conf
-        sudo a2dissite 000-default.conf
-        sudo service apache2 restart
-
-    - name: Install WordPress
+    - name: Install WordPress with SQLite
       run: |
         sudo mkdir -p /var/www/wordpress
-        sudo chown -R www-data:www-data /var/www/wordpress
+        sudo chown -R $USER /var/www/wordpress
         cd /var/www/wordpress
-        sudo -u www-data wp core download
-        sudo -u www-data wp config create --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=localhost
-        sudo -u www-data wp core install --url=localhost --title="WordPress Test" --admin_user=admin --admin_password=admin --admin_email=admin@example.com --skip-email
-
+        wp core download --allow-root
+        # Create wp-config.php with SQLite configuration
+        wp config create --dbname=wordpress --dbuser=wordpress --dbpass=wordpress --dbhost=localhost --skip-check --allow-root
+        # Add SQLite configuration to wp-config.php
+        sed -i "/define( 'DB_NAME', 'wordpress' );/a define( 'DB_TYPE', 'sqlite' );" wp-config.php
+        wp core install --url=localhost --title="WordPress Test" --admin_user=admin --admin_password=admin --admin_email=admin@example.com --skip-email --allow-root
+        # Download SQLite integration plugin
+        wp plugin install sqlite-integration --activate --allow-root
+        
     - name: Install Plugin Check Plugin    
       run: |
         cd /var/www/wordpress/wp-content/plugins/
-        sudo -u www-data wp plugin install plugin-check --activate
+        wp plugin install plugin-check --activate --allow-root        
